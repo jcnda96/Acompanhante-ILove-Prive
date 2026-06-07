@@ -19,7 +19,7 @@ oauth2Client.setCredentials({
 });
 const blogger = google.blogger({ version: 'v3', auth: oauth2Client });
 
-// BANCO DE DADOS DE SEO LOCAL - TODOS OS ESTADOS BRASILEIROS (Foco nas principais hubs)
+// BANCO DE DADOS DE SEO LOCAL - TODOS OS ESTADOS BRASILEIROS
 const LOCALIDADES = [
   // Sudeste
   { cidade: "São Paulo", estado: "SP", regiao: "São Paulo" },
@@ -93,64 +93,88 @@ async function runBot() {
       return;
     }
 
-    console.log(`Encontradas ${models.length} modelos. Processando lote de 3 listagens para sincronização perfeita com a paginação...`);
-    const lote = models.slice(0, 3); // Lote de 3 em 3 para o loop infinito funcionar perfeitamente
+    console.log(`Encontradas ${models.length} modelos. Processando lote de 3 listagens...`);
+    const lote = models.slice(0, 3);
 
     for (const model of lote) {
       const docRef = db.collection('modelos_ativas').doc(model.username);
       const doc = await docRef.get();
 
       if (!doc.exists) {
-        // Modelo nova: Sorteia uma das localidades estratégicas do Brasil
+        // Modelo nova: Sorteia localidade
         const localSorteado = LOCALIDADES[Math.floor(Math.random() * LOCALIDADES.length)];
         
-        // Estrutura de Títulos focada em Cauda Longa (SEO Extremo)
+        // Estrutura de Títulos (SEO)
         const titulo = `Photo Acompanhante ${model.username} - Garota com Local em ${localSorteado.cidade} ${localSorteado.estado}`;
-        
         const atributos = model.tags ? model.tags.slice(0, 5).join(', ') : 'Premium, Online';
         const avatar = model.avatarUrl || 'https://via.placeholder.com/300';
+        
+        // Link de Afiliado Seguro
+        const linkAfiliado = `https://go.mavrtracktor.com/api/goToTheRoom?modelsList=${model.username}&userId=${process.env.STRIPCASH_USER_ID}&targetDomain=iloveprive.com`;
 
-        // HTML Injetado Otimizado para a Estrutura Semântica do tema_v2.xml
+        // HTML Injetado (Desfoque, Aviso +18, Bolinhas e Links)
         const htmlContent = `
           <div class="post-city">${localSorteado.cidade} - ${localSorteado.estado}</div>
-          <img src="${avatar}" alt="Photo Acompanhante ${model.username} no Fatal Model" class="avatar-img" />
+          
+          <!-- IMAGEM DESFOCADA (BLUR) E CLICÁVEL -->
+          <div class="image-wrapper" style="position: relative; display: inline-block; width: 100%; text-align: center; margin-bottom: 15px;">
+            <a href="${linkAfiliado}" target="_blank" rel="nofollow" style="display: block; position: relative;">
+              <img src="${avatar}" alt="Acompanhante ${model.username}" class="avatar-img" style="filter: blur(12px); -webkit-filter: blur(12px); transform: scale(1.05);" />
+              <div class="blur-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 12px 20px; border-radius: 30px; font-weight: 900; font-size: 13px; border: 2px solid #e11d48; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                🔞 TOQUE PARA VER (18+)
+              </div>
+            </a>
+          </div>
+
+          <!-- AVISO DE IDADE OBRIGATÓRIO (SEGURANÇA DO GOOGLE) -->
+          <div class="age-warning" style="background: rgba(225, 29, 72, 0.1); color: #e11d48; padding: 10px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 8px; border: 1px solid rgba(225, 29, 72, 0.3); margin-bottom: 15px; text-transform: uppercase;">
+            🔞 Conteúdo Sensível - Apenas Maiores de 18 Anos
+          </div>
+
           <div class="status-online"><div class="status-dot"></div> TRANSMITINDO AO VIVO</div>
           
           <table class="info-table">
             <tbody>
               <tr><th>Plataforma VIP:</th><td>Privacy / OnlyFans</td></tr>
               <tr><th>Atendimento:</th><td>Câmera Privê Imediata</td></tr>
-              <tr><th>Tags Relacionadas:</th><td>${atributos}</td></tr>
-              <tr><th>Acesso Seguro:</th><td>Verificado Antifraude</td></tr>
+              <tr><th>Tags:</th><td>${atributos}</td></tr>
             </tbody>
           </table>
           
           <div class="seo-desc">
-            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <strong>${model.username}</strong>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Acesse conteúdos estilo <strong>onlyfans</strong> e <strong>privacy</strong> com segurança e sem intermediários na plataforma oficial do I'Love Prive.
+            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <strong>${model.username}</strong>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Acesse conteúdos estilo <strong>onlyfans</strong> e <strong>privacy</strong> com segurança.
           </div>
           
-          <a href="https://go.mavrtracktor.com/api/goToTheRoom?modelsList=${model.username}&userId=${process.env.STRIPCASH_USER_ID}&targetDomain=iloveprive.com" class="btn-call" target="_blank" rel="nofollow">
+          <a href="${linkAfiliado}" class="btn-call" target="_blank" rel="nofollow">
             Entrar no Privê Agora
           </a>
+
+          <!-- BOLINHAS / LINKS PARA MODELOS IGUAIS DA MESMA REGIÃO -->
+          <div class="similar-models" style="margin-top: 30px; text-align: center; padding-top: 20px; border-top: 1px solid #27272a;">
+            <span style="font-size: 12px; color: #a1a1aa; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">📍 Veja mais garotas nesta região:</span><br/>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+              <a href="/search/label/${localSorteado.estado}" style="background: #18181b; border: 1px solid #3f3f46; color: #e11d48; padding: 10px 18px; border-radius: 30px; font-size: 12px; font-weight: 800; text-decoration: none; transition: 0.3s;">
+                👉 Ver todas em ${localSorteado.estado}
+              </a>
+              <a href="/search/label/${localSorteado.cidade}" style="background: #18181b; border: 1px solid #3f3f46; color: #e11d48; padding: 10px 18px; border-radius: 30px; font-size: 12px; font-weight: 800; text-decoration: none; transition: 0.3s;">
+                👉 Garotas em ${localSorteado.cidade}
+              </a>
+            </div>
+          </div>
         `;
 
-        console.log(`Criando listagem otimizada para SEO: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
+        console.log(`Criando listagem otimizada: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
         
-        // MÁGICA DO FILTRO: Vincula as etiquetas exatas do carrossel de Stories do Blogger
+        // CORREÇÃO: Enviar APENAS localidades como Labels para não bugar os Stories
         const tagsBlogger = [
           localSorteado.cidade, 
           localSorteado.regiao, 
-          localSorteado.estado, 
-          "Fatal Model", 
-          "Privacy", 
-          "Photo Acompanhante", 
-          "Câmera Privê"
+          localSorteado.estado
         ];
 
-        // Insere a postagem diretamente via API pública
         const post = await blogger.posts.insert({
           blogId: process.env.BLOG_ID,
-          isDraft: false, // Publica imediatamente sem passar por rascunho
+          isDraft: false,
           requestBody: {
             title: titulo,
             content: htmlContent,
@@ -158,7 +182,6 @@ async function runBot() {
           }
         });
 
-        // Salva o registro estruturado no Firestore para controle de duplicidade
         await docRef.set({
           username: model.username,
           cidade: localSorteado.cidade,
@@ -169,16 +192,14 @@ async function runBot() {
 
         console.log(`[SUCESSO] Post injetado com ID: ${post.data.id}`);
       } else {
-         // Se a modelo já existe, atualiza apenas o timestamp para controle interno
          await docRef.update({
            dataPublicacao: admin.firestore.FieldValue.serverTimestamp()
          });
-         console.log(`Modelo ${model.username} já ativa no catálogo. Pulando...`);
       }
     }
-    console.log("Rotina de alimentação do robô executada com sucesso!");
+    console.log("Rotina executada com sucesso!");
   } catch (error) {
-    console.error("Erro crítico na execução do bot GitHub:", error.message);
+    console.error("Erro crítico na execução do bot:", error.message);
   }
 }
 
