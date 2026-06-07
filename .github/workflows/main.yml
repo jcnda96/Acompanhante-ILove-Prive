@@ -1,32 +1,31 @@
 name: Bot iLovePrive SEO
 
 on:
-schedule:
-- cron: '*/15 * * * *' # Roda automaticamente a cada 15 minutos
-workflow_dispatch: # Permite você rodar clicando em um botão manualmente
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
-run-bot:
-runs-on: ubuntu-latest
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
 
-steps:
-- name: Baixando os arquivos
-  uses: actions/checkout@v3
+      - name: Instalar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-- name: Configurando Node.js
-  uses: actions/setup-node@v3
-  with:
-    node-version: '18'
+      - name: Instalar dependências
+        run: npm install
 
-- name: Instalando as Bibliotecas
-  run: npm install
-
-- name: Rodando o Robô
-  env:
-    FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-    BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
-    BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
-    BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
-    STRIPCASH_USER_ID: ${{ secrets.STRIPCASH_USER_ID }}
-    BLOG_ID: ${{ secrets.BLOG_ID }}
-  run: npm start
+      - name: Rodar o Robô
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          STRIPCASH_USER_ID: ${{ secrets.STRIPCASH_USER_ID }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+        run: node index.js
