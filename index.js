@@ -135,8 +135,10 @@ async function runBot() {
           
           <table class="info-table">
             <tbody>
-              <tr><th>Plataforma VIP:</th><td>Privacy / OnlyFans</td></tr>
-              <tr><th>Atendimento:</th><td>Câmera Privê Imediata</td></tr>
+              <tr><th>Disponibilidade:</th><td>Chamada de Vídeo / Virtual</td></tr>
+              <tr><th>Atendimento:</th><td>Imediato - Câmera Ligada</td></tr>
+              <tr><th>Características:</th><td>Linda e Disponível</td></tr>
+              <tr><th>Sigilo:</th><td>100% Anônimo e Seguro</td></tr>
               <tr><th>Tags:</th><td>${atributos}</td></tr>
             </tbody>
           </table>
