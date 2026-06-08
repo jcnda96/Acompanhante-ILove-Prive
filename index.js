@@ -191,11 +191,11 @@ async function runBot() {
           // FIX #4: Substituição via Regex robusta
           currentHtml = currentHtml.replace(REGEX_BADGE_OFFLINE_TO_ONLINE, badgeOnline);
 
-          // Restaura o link afiliado original salvo no Firebase
-          const linkAfiliado = `https://go.mavrtracktor.com/api/goToTheRoom?modelsList=${model.username}&userId=${process.env.STRIPCASH_USER_ID}&targetDomain=iloveprive.com`;
+          // Restaura o link direto (Dofollow) para passar poder de SEO para o domínio principal
+          const linkDireto = `https://iloveprive.com/${model.username}`;
           currentHtml = currentHtml.replace(
             REGEX_BTN_OFFLINE_TO_ONLINE,
-            ` href="${linkAfiliado}" class="btn-call" target="_blank" rel="nofollow"${btnOnlineAnchor}`
+            ` href="${linkDireto}" class="btn-call" target="_blank"${btnOnlineAnchor}`
           );
 
           await blogger.posts.patch({
@@ -228,7 +228,8 @@ async function runBot() {
         
         const atributos = model.tags ? model.tags.slice(0, 5).join(', ') : 'Premium, Online';
         const avatar = model.avatarUrl || 'https://via.placeholder.com/300';
-        const linkAfiliado = `https://go.mavrtracktor.com/api/goToTheRoom?modelsList=${model.username}&userId=${process.env.STRIPCASH_USER_ID}&targetDomain=iloveprive.com`;
+        // O link direto transfere a autoridade do Blogger para a página da modelo no domínio principal (Dofollow)
+        const linkDireto = `https://iloveprive.com/${model.username}`;
 
         // FIX #1: Removido `style="filter: blur(12px)..."` do <img>.
         //         O blur na home e o desfoque na single page são controlados
@@ -244,7 +245,7 @@ async function runBot() {
           <div class="post-city">${localSorteado.cidade} - ${localSorteado.estado}</div>
           
           <div class="image-wrapper">
-            <a href="${linkAfiliado}" target="_blank" rel="nofollow">
+            <a href="${linkDireto}" target="_blank">
               <img src="${avatar}" alt="Acompanhante ${model.username}" class="avatar-img" />
             </a>
             <!-- FIX P3: blur-warning injetado para aparecer na grid (is-multiple) via CSS do XML -->
@@ -268,10 +269,10 @@ async function runBot() {
           </table>
           
           <div class="seo-desc">
-            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <strong>${model.username}</strong>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Acesse conteúdos de privacidade com segurança.
+            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <a href="${linkDireto}" target="_blank"><strong>${model.username}</strong></a>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Para ver o nosso catálogo completo, acesse a página oficial do <a href="https://iloveprive.com" target="_blank">I'Love Prive</a>.
           </div>
           
-          <a href="${linkAfiliado}" class="btn-call" target="_blank" rel="nofollow">${btnOnlineAnchor}
+          <a href="${linkDireto}" class="btn-call" target="_blank">${btnOnlineAnchor}
 
           <div class="similar-models">
             <span class="similar-title">📍 Veja mais garotas nesta região:</span>
