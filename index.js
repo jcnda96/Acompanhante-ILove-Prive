@@ -20,43 +20,43 @@ oauth2Client.setCredentials({
 const blogger = google.blogger({ version: 'v3', auth: oauth2Client });
 
 // BANCO DE DADOS DE SEO LOCAL (27 Estados e Principais Cidades)
-// FIX #7: Corrigido o typo `index` -> `estado` no objeto de Teresina/PI
+// FIX LOCALIZAÇÃO: Adicionados lat/lng reais — a Blogger API só registra location com coordenadas numéricas
 const LOCALIDADES = [
-  { cidade: "São Paulo", estado: "SP", regiao: "São Paulo" },
-  { cidade: "Guarulhos", estado: "SP", regiao: "Guarulhos" },
-  { cidade: "Campinas", estado: "SP", regiao: "Campinas" },
-  { cidade: "São Bernardo do Campo", estado: "SP", regiao: "São Paulo" },
-  { cidade: "Santo André", estado: "SP", regiao: "São Paulo" },
-  { cidade: "Rio de Janeiro", estado: "RJ", regiao: "Rio de Janeiro" },
-  { cidade: "Niterói", estado: "RJ", regiao: "Rio de Janeiro" },
-  { cidade: "Belo Horizonte", estado: "MG", regiao: "Belo Horizonte" },
-  { cidade: "Uberlândia", estado: "MG", regiao: "Belo Horizonte" },
-  { cidade: "Vitória", estado: "ES", regiao: "Espírito Santo" },
-  { cidade: "Curitiba", estado: "PR", regiao: "Curitiba" },
-  { cidade: "Londrina", estado: "PR", regiao: "Curitiba" },
-  { cidade: "Porto Alegre", estado: "RS", regiao: "Porto Alegre" },
-  { cidade: "Florianópolis", estado: "SC", regiao: "Florianópolis" },
-  { cidade: "Balneário Camboriú", estado: "SC", regiao: "Florianópolis" },
-  { cidade: "Brasília", estado: "DF", regiao: "Brasília" },
-  { cidade: "Goiânia", estado: "GO", regiao: "Goiânia" },
-  { cidade: "Cuiabá", estado: "MT", regiao: "Mato Grosso" },
-  { cidade: "Campo Grande", estado: "MS", regiao: "Mato Grosso do Sul" },
-  { cidade: "Salvador", estado: "BA", regiao: "Salvador" },
-  { cidade: "Recife", estado: "PE", regiao: "Pernambuco" },
-  { cidade: "Fortaleza", estado: "CE", regiao: "Ceará" },
-  { cidade: "Natal", estado: "RN", regiao: "Rio Grande do Norte" },
-  { cidade: "João Pessoa", estado: "PB", regiao: "Paraíba" },
-  { cidade: "Maceió", estado: "AL", regiao: "Alagoas" },
-  { cidade: "Aracaju", estado: "SE", regiao: "Sergipe" },
-  { cidade: "Teresina", estado: "PI", regiao: "Piauí" },  // FIX #7: `index` corrigido para `estado`
-  { cidade: "São Luís", estado: "MA", regiao: "Maranhão" },
-  { cidade: "Belém", estado: "PA", regiao: "Pará" },
-  { cidade: "Manaus", estado: "AM", regiao: "Amazonas" },
-  { cidade: "Porto Velho", estado: "RO", regiao: "Rondônia" },
-  { cidade: "Palmas", estado: "TO", regiao: "Tocantins" },
-  { cidade: "Macapá", estado: "AP", regiao: "Amapá" },
-  { cidade: "Rio Branco", estado: "AC", regiao: "Acre" },
-  { cidade: "Boa Vista", estado: "RR", regiao: "Roraima" }
+  { cidade: "São Paulo",             estado: "SP", regiao: "São Paulo",          lat: -23.5505, lng: -46.6333 },
+  { cidade: "Guarulhos",             estado: "SP", regiao: "Guarulhos",           lat: -23.4538, lng: -46.5333 },
+  { cidade: "Campinas",              estado: "SP", regiao: "Campinas",            lat: -22.9083, lng: -47.0626 },
+  { cidade: "São Bernardo do Campo", estado: "SP", regiao: "São Paulo",          lat: -23.6939, lng: -46.5650 },
+  { cidade: "Santo André",           estado: "SP", regiao: "São Paulo",          lat: -23.6639, lng: -46.5383 },
+  { cidade: "Rio de Janeiro",        estado: "RJ", regiao: "Rio de Janeiro",     lat: -22.9068, lng: -43.1729 },
+  { cidade: "Niterói",               estado: "RJ", regiao: "Rio de Janeiro",     lat: -22.8838, lng: -43.1044 },
+  { cidade: "Belo Horizonte",        estado: "MG", regiao: "Belo Horizonte",     lat: -19.9167, lng: -43.9345 },
+  { cidade: "Uberlândia",            estado: "MG", regiao: "Belo Horizonte",     lat: -18.9186, lng: -48.2772 },
+  { cidade: "Vitória",               estado: "ES", regiao: "Espírito Santo",     lat: -20.3155, lng: -40.3128 },
+  { cidade: "Curitiba",              estado: "PR", regiao: "Curitiba",           lat: -25.4284, lng: -49.2733 },
+  { cidade: "Londrina",              estado: "PR", regiao: "Curitiba",           lat: -23.3045, lng: -51.1696 },
+  { cidade: "Porto Alegre",          estado: "RS", regiao: "Porto Alegre",       lat: -30.0346, lng: -51.2177 },
+  { cidade: "Florianópolis",         estado: "SC", regiao: "Florianópolis",      lat: -27.5954, lng: -48.5480 },
+  { cidade: "Balneário Camboriú",    estado: "SC", regiao: "Florianópolis",      lat: -26.9906, lng: -48.6348 },
+  { cidade: "Brasília",              estado: "DF", regiao: "Brasília",           lat: -15.7801, lng: -47.9292 },
+  { cidade: "Goiânia",               estado: "GO", regiao: "Goiânia",            lat: -16.6864, lng: -49.2643 },
+  { cidade: "Cuiabá",                estado: "MT", regiao: "Mato Grosso",        lat: -15.5989, lng: -56.0949 },
+  { cidade: "Campo Grande",          estado: "MS", regiao: "Mato Grosso do Sul", lat: -20.4697, lng: -54.6201 },
+  { cidade: "Salvador",              estado: "BA", regiao: "Salvador",           lat: -12.9714, lng: -38.5014 },
+  { cidade: "Recife",                estado: "PE", regiao: "Pernambuco",         lat:  -8.0476, lng: -34.8770 },
+  { cidade: "Fortaleza",             estado: "CE", regiao: "Ceará",              lat:  -3.7172, lng: -38.5433 },
+  { cidade: "Natal",                 estado: "RN", regiao: "Rio Grande do Norte",lat:  -5.7945, lng: -35.2110 },
+  { cidade: "João Pessoa",           estado: "PB", regiao: "Paraíba",            lat:  -7.1195, lng: -34.8450 },
+  { cidade: "Maceió",                estado: "AL", regiao: "Alagoas",            lat:  -9.6658, lng: -35.7350 },
+  { cidade: "Aracaju",               estado: "SE", regiao: "Sergipe",            lat: -10.9472, lng: -37.0731 },
+  { cidade: "Teresina",              estado: "PI", regiao: "Piauí",              lat:  -5.0892, lng: -42.8019 },
+  { cidade: "São Luís",              estado: "MA", regiao: "Maranhão",           lat:  -2.5297, lng: -44.3028 },
+  { cidade: "Belém",                 estado: "PA", regiao: "Pará",               lat:  -1.4558, lng: -48.4902 },
+  { cidade: "Manaus",                estado: "AM", regiao: "Amazonas",           lat:  -3.1190, lng: -60.0217 },
+  { cidade: "Porto Velho",           estado: "RO", regiao: "Rondônia",           lat:  -8.7612, lng: -63.9004 },
+  { cidade: "Palmas",                estado: "TO", regiao: "Tocantins",          lat: -10.2491, lng: -48.3243 },
+  { cidade: "Macapá",                estado: "AP", regiao: "Amapá",              lat:   0.0356, lng: -51.0705 },
+  { cidade: "Rio Branco",            estado: "AC", regiao: "Acre",               lat:  -9.9754, lng: -67.8249 },
+  { cidade: "Boa Vista",             estado: "RR", regiao: "Roraima",            lat:   2.8235, lng: -60.6758 }
 ];
 
 // FIX #3: Elementos HTML de status SEM CSS inline — usam apenas classes do template.xml.
@@ -312,8 +312,21 @@ async function runBot() {
             title: titulo,
             content: htmlContent,
             labels: tagsBlogger,
-            customMetaData: JSON.stringify({ description: descPesquisa }),  // FIX P4: JSON válido para Blogger API
-            location: { name: `${localSorteado.cidade}, ${localSorteado.estado}, Brasil` } 
+            // FIX DESCRIÇÃO: customMetaData NÃO é o campo 'Descrição da pesquisa' do Blogger.
+            // Esse campo é metadata de blog-nível e é ignorado no editor de posts.
+            // A Blogger API v3 não expõe o campo de search description via requestBody padrão.
+            // O snippet/descrição é gerado automaticamente pelo Blogger a partir do texto do post.
+            // Para controlar a descrição de pesquisa, o texto rico do .seo-desc já garante
+            // que o Blogger extrai palavras-chave relevantes para o snippet automático.
+            //
+            // FIX LOCALIZAÇÃO: Adicionados lat/lng obrigatórios — sem coordenadas numéricas
+            // a Blogger API ignora silenciosamente o campo location inteiro.
+            location: {
+              name: `${localSorteado.cidade}, ${localSorteado.estado}, Brasil`,
+              lat:  localSorteado.lat,
+              lng:  localSorteado.lng,
+              span: '0.1 0.1'
+            }
           }
         });
 
