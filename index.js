@@ -352,5 +352,6 @@ async function runBot() {
     // fica pendurada até o timeout padrão de 6 horas, consumindo minutos gratuitos.
     process.exit(0);
   }
+}
 
 runBot();
