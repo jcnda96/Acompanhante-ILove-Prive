@@ -61,20 +61,13 @@ const LOCALIDADES = [
 
 // FIX #3: Elementos HTML de status SEM CSS inline — usam apenas classes do template.xml.
 // FIX #4: As constantes de substituição são âncoras semânticas curtas (sem CSS inline longo),
-//         tornando o replace muito mais robusto e imune a re-formatações do Blogger.
 const badgeOnline  = '<div class="status-online"><div class="status-dot"></div> TRANSMITINDO AO VIVO</div>';
 const badgeOffline = '<div class="status-offline">🌑 ATUALMENTE OFFLINE</div>';
 
-// FIX #4: Âncoras de replace para o botão CTA — identificam apenas o fragmento único e imutável.
-const btnOnlineAnchor  = '>Entrar no Privê Agora</a>';
-const btnOfflineAnchor = '>Ver Outras Garotas Disponíveis</a>';
-
-// FIX #4: Regex robustas para substituição de badge e botão, tolerando espaços/quebras de linha
-//         que o Blogger pode inserir ao re-salvar o post.
-const REGEX_BADGE_ONLINE_TO_OFFLINE = /<div\s+class="status-online"[\s\S]*?TRANSMITINDO AO VIVO<\/div>/i;
-const REGEX_BADGE_OFFLINE_TO_ONLINE = /<div\s+class="status-offline"[\s\S]*?ATUALMENTE OFFLINE<\/div>/i;
-const REGEX_BTN_ONLINE_TO_OFFLINE   = />Entrar no Privê Agora<\/a>/i;
-const REGEX_BTN_OFFLINE_TO_ONLINE   = />Ver Outras Garotas Disponíveis<\/a>/i;
+// FIX DEFINITIVO DOS BOTÕES: Regex para capturar e substituir a tag HTML INTEIRA,
+// evitando atributos href duplicados e vazamento de código na tela.
+const REGEX_BADGE = /<div class="status-(online|offline)[^>]*>[\s\S]*?<\/div>/i;
+const REGEX_BTN = /<a[^>]*class="btn-call"[^>]*>[\s\S]*?<\/a>/i;
 
 async function runBot() {
   try {
@@ -116,16 +109,11 @@ async function runBot() {
           // Busca o Post Original
           const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: data.postId });
           
-          let currentTitle = post.data.title;
+          let currentTitle = post.data.title.replace('[OFFLINE] ', '');
           let currentHtml = post.data.content;
 
-          // Adiciona [OFFLINE] no título se não tiver
-          if (!currentTitle.includes('[OFFLINE]')) {
-            currentTitle = `[OFFLINE] ${currentTitle}`;
-          }
-
-          // FIX #4: Substituição via Regex robusta (tolerante a espaços/newlines do Blogger)
-          currentHtml = currentHtml.replace(REGEX_BADGE_ONLINE_TO_OFFLINE, badgeOffline);
+          // Substituição via Regex robusta
+          currentHtml = currentHtml.replace(REGEX_BADGE, badgeOffline);
 
           // FIX #2: Botão offline agora aponta para a busca regional da modelo,
           //         e NÃO mais para o linkAfiliado da própria modelo (que estará offline).
@@ -134,10 +122,9 @@ async function runBot() {
           const hrefOffline = estadoModelo
             ? `/search/label/${estadoModelo}`
             : '/';
-          currentHtml = currentHtml.replace(
-            REGEX_BTN_ONLINE_TO_OFFLINE,
-            ` href="${hrefOffline}" class="btn-call" target="_self" rel="nofollow"${btnOfflineAnchor}`
-          );
+          
+          const btnOfflineFull = `<a href="${hrefOffline}" class="btn-call" target="_self" rel="nofollow">Ver Outras Garotas Disponíveis</a>`;
+          currentHtml = currentHtml.replace(REGEX_BTN, btnOfflineFull);
 
           // Atualiza no Blogger
           await blogger.posts.patch({
@@ -192,15 +179,12 @@ async function runBot() {
           let currentTitle = post.data.title.replace('[OFFLINE] ', '');
           let currentHtml = post.data.content;
 
-          // FIX #4: Substituição via Regex robusta
-          currentHtml = currentHtml.replace(REGEX_BADGE_OFFLINE_TO_ONLINE, badgeOnline);
+          currentHtml = currentHtml.replace(REGEX_BADGE, badgeOnline);
 
           // Restaura o link direto (Dofollow) para passar poder de SEO para o domínio principal
           const linkDireto = `https://iloveprive.com/${model.username}`;
-          currentHtml = currentHtml.replace(
-            REGEX_BTN_OFFLINE_TO_ONLINE,
-            ` href="${linkDireto}" class="btn-call" target="_blank"${btnOnlineAnchor}`
-          );
+          const btnOnlineFull = `<a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>`;
+          currentHtml = currentHtml.replace(REGEX_BTN, btnOnlineFull);
 
           await blogger.posts.patch({
             blogId: process.env.BLOG_ID,
@@ -276,7 +260,7 @@ async function runBot() {
             Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <a href="${linkDireto}" target="_blank"><strong>${model.username}</strong></a>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Para ver o nosso catálogo completo, acesse a página oficial do <a href="https://iloveprive.com" target="_blank">I'Love Prive</a>.
           </div>
           
-          <a href="${linkDireto}" class="btn-call" target="_blank">${btnOnlineAnchor}
+          <a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>
 
           <div class="similar-models">
             <span class="similar-title">📍 Veja mais garotas nesta região:</span>
