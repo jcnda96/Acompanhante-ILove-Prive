@@ -106,6 +106,10 @@ async function runBot() {
         
         // Estrutura de Títulos (SEO)
         const titulo = `Photo Acompanhante ${model.username} - Garota com Local em ${localSorteado.cidade} ${localSorteado.estado}`;
+        
+        // CORREÇÃO AUDITORIA: Adicionada a Descrição de Pesquisa dinamicamente
+        const descPesquisa = `Acompanhante ${model.username} em ${localSorteado.cidade} ${localSorteado.estado}. Câmera privê estilo Fatal Model e Privacy. Clique para ver conteúdos +18 e encontros reais.`;
+        
         const atributos = model.tags ? model.tags.slice(0, 5).join(', ') : 'Premium, Online';
         const avatar = model.avatarUrl || 'https://via.placeholder.com/300';
         
@@ -120,9 +124,6 @@ async function runBot() {
           <div class="image-wrapper" style="position: relative; display: inline-block; width: 100%; text-align: center; margin-bottom: 15px;">
             <a href="${linkAfiliado}" target="_blank" rel="nofollow" style="display: block; position: relative;">
               <img src="${avatar}" alt="Acompanhante ${model.username}" class="avatar-img" style="filter: blur(12px); -webkit-filter: blur(12px); transform: scale(1.05);" />
-              <div class="blur-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 12px 20px; border-radius: 30px; font-weight: 900; font-size: 13px; border: 2px solid #e11d48; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-                🔞 TOQUE PARA VER (18+)
-              </div>
             </a>
           </div>
 
@@ -167,12 +168,12 @@ async function runBot() {
 
         console.log(`Criando listagem otimizada: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
         
-        // CORREÇÃO: Enviar APENAS localidades como Labels para não bugar os Stories
-        const tagsBlogger = [
+        // Remove duplicatas usando Set (caso a região e cidade tenham o mesmo nome)
+        const tagsBlogger = Array.from(new Set([
           localSorteado.cidade, 
           localSorteado.regiao, 
           localSorteado.estado
-        ];
+        ]));
 
         const post = await blogger.posts.insert({
           blogId: process.env.BLOG_ID,
@@ -180,7 +181,9 @@ async function runBot() {
           requestBody: {
             title: titulo,
             content: htmlContent,
-            labels: tagsBlogger
+            labels: tagsBlogger,
+            customMetaData: descPesquisa, // CORREÇÃO AUDITORIA: Injetado na Descrição
+            location: { name: `${localSorteado.cidade}, ${localSorteado.estado}, Brasil` } // CORREÇÃO AUDITORIA: Injetado no mapa Localização
           }
         });
 
