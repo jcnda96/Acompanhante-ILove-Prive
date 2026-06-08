@@ -8,6 +8,9 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    # FIX CRÍTICO: sem este timeout, uma Action presa (ex: Firebase sem process.exit)
+    # consome horas de minutos gratuitos silenciosamente. 8 minutos é mais que suficiente.
+    timeout-minutes: 8
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
