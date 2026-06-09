@@ -51,13 +51,68 @@ const LOCALIDADES = [
   { cidade: "Boa Vista",             estado: "RR", regiao: "Roraima",            lat:   2.8235, lng: -60.6758 }
 ];
 
-// STATUS DOT usa SPAN (não div) — evita o bug do lazy regex com divs aninhadas
+// =====================================================
+// GERADOR DE HTML PADRÃO — fonte única da verdade
+// Todo post (novo, offline ou ressuscitado) passa por
+// esta função, garantindo estrutura 100% consistente.
+// =====================================================
+function gerarHtml({ username, cidade, estado, avatar, badge, linkBtn, textoBtn, targetBtn, relBtn }) {
+  const linkDireto = `https://iloveprive.com/${username}`;
+  const rel = relBtn ? ` rel="${relBtn}"` : '';
+
+  return `
+          <div class="post-city">${cidade} - ${estado}</div>
+
+          <div class="image-wrapper">
+            <a href="${linkDireto}" target="_blank">
+              <img src="${avatar}" alt="Acompanhante ${username}" class="avatar-img" />
+            </a>
+            <div class="blur-warning">🔞 Clique para Ver</div>
+          </div>
+
+          <div class="age-warning-banner">
+            🔞 Conteúdo Sensível - Apenas Maiores de 18 Anos
+          </div>
+
+          ${badge}
+
+          <table class="info-table">
+            <tbody>
+              <tr><th>Disponibilidade:</th><td>Chamada de Vídeo / Virtual</td></tr>
+              <tr><th>Atendimento:</th><td>Imediato - Câmera Ligada</td></tr>
+              <tr><th>Características:</th><td>Linda e Disponível</td></tr>
+              <tr><th>Sigilo:</th><td>100% Anônimo e Seguro</td></tr>
+            </tbody>
+          </table>
+
+          <div class="seo-desc">
+            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${cidade} (${estado})</strong>? Conecte-se agora com <a href="${linkDireto}" target="_blank"><strong>${username}</strong></a>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Para ver o nosso catálogo completo, acesse a página oficial do <a href="https://iloveprive.com" target="_blank">I'Love Prive</a>.
+          </div>
+
+          <a href="${linkBtn}" class="btn-call" target="${targetBtn}"${rel}>${textoBtn}</a>
+
+          <div class="similar-models">
+            <span class="similar-title">📍 Veja mais garotas nesta região:</span>
+            <div class="similar-links">
+              <a href="/search/label/${estado}">👉 Ver todas em ${estado}</a>
+              <a href="/search/label/${cidade}">👉 Garotas em ${cidade}</a>
+            </div>
+          </div>
+        `;
+}
+
 const badgeOnline  = '<div class="status-online"><span class="status-dot"></span> TRANSMITINDO AO VIVO</div>';
 const badgeOffline = '<div class="status-offline">🌑 ATUALMENTE OFFLINE</div>';
 
-// REGEX_BADGE: captura o badge completo + consome qualquer </div> fantasma do bug antigo
-const REGEX_BADGE = /<div class="status-(?:online|offline)"[^>]*>[\s\S]*?<\/div>(?:\s*TRANSMITINDO AO VIVO<\/div>)*/i;
-const REGEX_BTN   = /<a[^>]*class="btn-call"[^>]*>[\s\S]*?<\/a>/i;
+function buildLabels(cidade, regiao, estado) {
+  const raw = [cidade, regiao, estado];
+  return Array.from(new Set(
+    raw.filter(l => l && l.trim() !== '').map(l => l.trim())
+  )).filter((label, _, arr) => {
+    const low = label.toLowerCase();
+    return arr.findIndex(l => l.toLowerCase() === low) === arr.indexOf(label);
+  });
+}
 
 async function runBot() {
   try {
@@ -75,39 +130,55 @@ async function runBot() {
     }
 
     const onlineUsernames = models.map(m => m.username);
+    // Mapa para recuperar avatarUrl de quem está online agora
+    const onlineMap = Object.fromEntries(models.map(m => [m.username, m]));
 
     const ativasSnapshot = await db.collection('modelos_ativas')
       .where('postId', '!=', null)
       .get();
 
+    // =======================================================
+    // 1. ROTINA DE LIMPEZA (COLOCAR OFFLINE)
+    // =======================================================
     for (const doc of ativasSnapshot.docs) {
       const data = doc.data();
 
       if (!onlineUsernames.includes(data.username)) {
-        console.log(`[OFFLINE] Modelo ${data.username} saiu. Atualizando Post...`);
+        console.log(`[OFFLINE] ${data.username} saiu. Reconstruindo post no padrão atual...`);
         try {
-          const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: data.postId });
+          const hrefOffline = data.estado ? `/search/label/${data.estado}` : '/';
+          const avatarUrl   = data.avatarUrl || 'https://via.placeholder.com/300';
 
-          let currentTitle = post.data.title.replace('[OFFLINE] ', '');
-          let currentHtml  = post.data.content;
+          const htmlNovo = gerarHtml({
+            username:  data.username,
+            cidade:    data.cidade,
+            estado:    data.estado,
+            avatar:    avatarUrl,
+            badge:     badgeOffline,
+            linkBtn:   hrefOffline,
+            textoBtn:  'Ver Outras Garotas Disponíveis',
+            targetBtn: '_self',
+            relBtn:    'nofollow'
+          });
 
-          currentHtml = currentHtml.replace(REGEX_BADGE, badgeOffline);
-
-          const estadoModelo = data.estado || '';
-          const hrefOffline  = estadoModelo ? `/search/label/${estadoModelo}` : '/';
-          const btnOffline   = `<a href="${hrefOffline}" class="btn-call" target="_self" rel="nofollow">Ver Outras Garotas Disponíveis</a>`;
-          currentHtml = currentHtml.replace(REGEX_BTN, btnOffline);
+          // Recupera o título limpo do post atual (para não depender do que está no Firebase)
+          const postAtual = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: data.postId });
+          const tituloLimpo = postAtual.data.title.replace('[OFFLINE] ', '');
 
           await blogger.posts.patch({
             blogId: process.env.BLOG_ID,
             postId: data.postId,
-            requestBody: { title: currentTitle, content: currentHtml }
+            requestBody: { title: tituloLimpo, content: htmlNovo }
           });
 
           await db.collection('modelos_offline').doc(data.username).set({
-            ...data, offlineDesde: admin.firestore.FieldValue.serverTimestamp()
+            ...data,
+            avatarUrl: avatarUrl,
+            offlineDesde: admin.firestore.FieldValue.serverTimestamp()
           });
           await db.collection('modelos_ativas').doc(data.username).delete();
+
+          console.log(`  ✅ Post de ${data.username} reconstruído e colocado offline.`);
 
         } catch (err) {
           console.error(`Erro ao colocar ${data.username} offline:`, err.message);
@@ -115,6 +186,9 @@ async function runBot() {
       }
     }
 
+    // =======================================================
+    // 2. ROTINA DE POSTAGEM (CRIAR NOVAS OU RESSUSCITAR)
+    // =======================================================
     console.log(`Encontradas ${models.length} modelos online na API Stripcash.`);
     const ativasUsernamesArray = ativasSnapshot.docs.map(doc => doc.data().username);
     let operacoesBlogger = 0;
@@ -123,7 +197,7 @@ async function runBot() {
       if (ativasUsernamesArray.includes(model.username)) continue;
 
       if (operacoesBlogger >= 3) {
-        console.log("Limite de 3 operações por ciclo atingido.");
+        console.log("Limite de 3 operações por ciclo atingido. As próximas ficam para a próxima rodada.");
         break;
       }
 
@@ -132,112 +206,91 @@ async function runBot() {
       const docOffline    = await docRefOffline.get();
 
       if (docOffline.exists) {
+        // RESSURREIÇÃO: estava offline e voltou!
         const dataOffline = docOffline.data();
-        console.log(`[VOLTOU] ${model.username} voltou online! Restaurando...`);
+        console.log(`[VOLTOU] ${model.username} voltou online! Reconstruindo post no padrão atual...`);
+
         try {
-          const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: dataOffline.postId });
+          const linkDireto  = `https://iloveprive.com/${model.username}`;
+          const avatarUrl   = model.avatarUrl || dataOffline.avatarUrl || 'https://via.placeholder.com/300';
 
-          let currentTitle = post.data.title.replace('[OFFLINE] ', '');
-          let currentHtml  = post.data.content;
+          const htmlNovo = gerarHtml({
+            username:  model.username,
+            cidade:    dataOffline.cidade,
+            estado:    dataOffline.estado,
+            avatar:    avatarUrl,
+            badge:     badgeOnline,
+            linkBtn:   linkDireto,
+            textoBtn:  'Entrar no Privê Agora',
+            targetBtn: '_blank',
+            relBtn:    null
+          });
 
-          currentHtml = currentHtml.replace(REGEX_BADGE, badgeOnline);
-
-          const linkDireto = `https://iloveprive.com/${model.username}`;
-          const btnOnline  = `<a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>`;
-          currentHtml = currentHtml.replace(REGEX_BTN, btnOnline);
+          const postAtual = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: dataOffline.postId });
+          const tituloLimpo = postAtual.data.title.replace('[OFFLINE] ', '');
 
           await blogger.posts.patch({
             blogId: process.env.BLOG_ID,
             postId: dataOffline.postId,
-            requestBody: { title: currentTitle, content: currentHtml }
+            requestBody: { title: tituloLimpo, content: htmlNovo }
           });
 
-          await docRefAtiva.set({ ...dataOffline, dataPublicacao: admin.firestore.FieldValue.serverTimestamp() });
+          await docRefAtiva.set({
+            ...dataOffline,
+            avatarUrl: avatarUrl,
+            dataPublicacao: admin.firestore.FieldValue.serverTimestamp()
+          });
           await docRefOffline.delete();
+
+          console.log(`  ✅ Post de ${model.username} reconstruído e colocado online.`);
 
         } catch (err) {
           console.error(`Erro ao ressuscitar ${model.username}:`, err.message);
         }
 
       } else {
+        // MODELO INÉDITA: cria post do zero
         const localSorteado = LOCALIDADES[Math.floor(Math.random() * LOCALIDADES.length)];
         const titulo    = `Photo Acompanhante ${model.username} - Garota com Local em ${localSorteado.cidade} ${localSorteado.estado}`;
-        const atributos = model.tags ? model.tags.slice(0, 5).join(', ') : 'Premium, Online';
-        const avatar    = model.avatarUrl || 'https://via.placeholder.com/300';
+        const avatarUrl = model.avatarUrl || 'https://via.placeholder.com/300';
         const linkDireto = `https://iloveprive.com/${model.username}`;
 
-        const htmlContent = `
-          <div class="post-city">${localSorteado.cidade} - ${localSorteado.estado}</div>
-          
-          <div class="image-wrapper">
-            <a href="${linkDireto}" target="_blank">
-              <img src="${avatar}" alt="Acompanhante ${model.username}" class="avatar-img" />
-            </a>
-            <div class="blur-warning">🔞 Clique para Ver</div>
-          </div>
-
-          <div class="age-warning-banner">
-            🔞 Conteúdo Sensível - Apenas Maiores de 18 Anos
-          </div>
-
-          ${badgeOnline}
-          
-          <table class="info-table">
-            <tbody>
-              <tr><th>Disponibilidade:</th><td>Chamada de Vídeo / Virtual</td></tr>
-              <tr><th>Atendimento:</th><td>Imediato - Câmera Ligada</td></tr>
-              <tr><th>Características:</th><td>Linda e Disponível</td></tr>
-              <tr><th>Sigilo:</th><td>100% Anônimo e Seguro</td></tr>
-              <tr><th>Tags:</th><td>${atributos}</td></tr>
-            </tbody>
-          </table>
-          
-          <div class="seo-desc">
-            Procurando por <strong>photo acompanhante</strong> ou perfil estilo <strong>fatal model</strong> em <strong>${localSorteado.cidade} (${localSorteado.estado})</strong>? Conecte-se agora com <a href="${linkDireto}" target="_blank"><strong>${model.username}</strong></a>. Atendimento exclusivo via <strong>câmera privê</strong> com total sigilo. Para ver o nosso catálogo completo, acesse a página oficial do <a href="https://iloveprive.com" target="_blank">I'Love Prive</a>.
-          </div>
-          
-          <a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>
-
-          <div class="similar-models">
-            <span class="similar-title">📍 Veja mais garotas nesta região:</span>
-            <div class="similar-links">
-              <a href="/search/label/${localSorteado.estado}">👉 Ver todas em ${localSorteado.estado}</a>
-              <a href="/search/label/${localSorteado.cidade}">👉 Garotas em ${localSorteado.cidade}</a>
-            </div>
-          </div>
-        `;
+        const htmlContent = gerarHtml({
+          username:  model.username,
+          cidade:    localSorteado.cidade,
+          estado:    localSorteado.estado,
+          avatar:    avatarUrl,
+          badge:     badgeOnline,
+          linkBtn:   linkDireto,
+          textoBtn:  'Entrar no Privê Agora',
+          targetBtn: '_blank',
+          relBtn:    null
+        });
 
         console.log(`Criando: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
-
-        const labelsRaw  = [localSorteado.cidade, localSorteado.regiao, localSorteado.estado];
-        const tagsBlogger = Array.from(new Set(
-          labelsRaw.filter(l => l && l.trim() !== '').map(l => l.trim())
-        )).filter((label, _, arr) => {
-          const low = label.toLowerCase();
-          return arr.findIndex(l => l.toLowerCase() === low) === arr.indexOf(label);
-        });
 
         const post = await blogger.posts.insert({
           blogId: process.env.BLOG_ID,
           isDraft: false,
           requestBody: {
-            title: titulo,
+            title:   titulo,
             content: htmlContent,
-            labels: tagsBlogger,
+            labels:  buildLabels(localSorteado.cidade, localSorteado.regiao, localSorteado.estado),
             location: {
               name: `${localSorteado.cidade}, ${localSorteado.estado}, Brasil`,
-              lat: localSorteado.lat,
-              lng: localSorteado.lng,
+              lat:  localSorteado.lat,
+              lng:  localSorteado.lng,
               span: '0.1 0.1'
             }
           }
         });
 
         await docRefAtiva.set({
-          username: model.username,
-          cidade: localSorteado.cidade,
-          estado: localSorteado.estado,
-          postId: post.data.id,
+          username:  model.username,
+          cidade:    localSorteado.cidade,
+          estado:    localSorteado.estado,
+          avatarUrl: avatarUrl,
+          postId:    post.data.id,
           dataPublicacao: admin.firestore.FieldValue.serverTimestamp()
         });
 
