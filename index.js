@@ -2,25 +2,17 @@ const axios = require('axios');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
 
-// 1. Inicializar Firebase
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// 2. Inicializar Blogger API
 const oauth2Client = new google.auth.OAuth2(
   process.env.BLOGGER_CLIENT_ID,
   process.env.BLOGGER_CLIENT_SECRET
 );
-oauth2Client.setCredentials({
-  refresh_token: process.env.BLOGGER_REFRESH_TOKEN
-});
+oauth2Client.setCredentials({ refresh_token: process.env.BLOGGER_REFRESH_TOKEN });
 const blogger = google.blogger({ version: 'v3', auth: oauth2Client });
 
-// BANCO DE DADOS DE SEO LOCAL (27 Estados e Principais Cidades)
-// FIX LOCALIZAÇÃO: Adicionados lat/lng reais — a Blogger API só registra location com coordenadas numéricas
 const LOCALIDADES = [
   { cidade: "São Paulo",             estado: "SP", regiao: "São Paulo",          lat: -23.5505, lng: -46.6333 },
   { cidade: "Guarulhos",             estado: "SP", regiao: "Guarulhos",           lat: -23.4538, lng: -46.5333 },
@@ -59,29 +51,24 @@ const LOCALIDADES = [
   { cidade: "Boa Vista",             estado: "RR", regiao: "Roraima",            lat:   2.8235, lng: -60.6758 }
 ];
 
-// FIX #3: Elementos HTML de status SEM CSS inline — usam apenas classes do template.xml.
-// FIX #4: As constantes de substituição são âncoras semânticas curtas (sem CSS inline longo),
-// O dot usa SPAN (não div) para evitar o bug do lazy regex com divs aninhadas
+// STATUS DOT usa SPAN (não div) — evita o bug do lazy regex com divs aninhadas
 const badgeOnline  = '<div class="status-online"><span class="status-dot"></span> TRANSMITINDO AO VIVO</div>';
 const badgeOffline = '<div class="status-offline">🌑 ATUALMENTE OFFLINE</div>';
 
-// REGEX_BADGE: Captura o badge inteiro + limpa qualquer texto orfão deixado pelo bug antigo
-// O (?:\s*TRANSMITINDO AO VIVO<\/div>)* no final consome os restos do regex antigo
+// REGEX_BADGE: captura o badge completo + consome qualquer </div> fantasma do bug antigo
 const REGEX_BADGE = /<div class="status-(?:online|offline)"[^>]*>[\s\S]*?<\/div>(?:\s*TRANSMITINDO AO VIVO<\/div>)*/i;
-const REGEX_BTN = /<a[^>]*class="btn-call"[^>]*>[\s\S]*?<\/a>/i;
+const REGEX_BTN   = /<a[^>]*class="btn-call"[^>]*>[\s\S]*?<\/a>/i;
 
 async function runBot() {
   try {
     console.log("Iniciando busca de modelos Brasileiras...");
-    
-    // Puxa as modelos online da Stripcash
-    // FIX CRÍTICO: timeout de 15s — se a API cair, a Action encerra limpa em vez de ficar pendurada
+
     const response = await axios.get(
       `https://go.mavrtracktor.com/api/models?modelsCountry=br&limit=100&userId=${process.env.STRIPCASH_USER_ID}`,
       { timeout: 15000 }
     );
     const models = response.data.models;
-    
+
     if (!models || models.length === 0) {
       console.log("Nenhuma modelo online. Abortando para não gerar falso offline.");
       return;
@@ -89,103 +76,75 @@ async function runBot() {
 
     const onlineUsernames = models.map(m => m.username);
 
-    // =======================================================
-    // 1. ROTINA DE LIMPEZA (COLOCAR OFFLINE)
-    // =======================================================
-
-    // FIX #5: Em vez de ler a coleção inteira, filtra apenas docs com `postId` definido
-    //         que ainda não foram processados neste ciclo — reduz drasticamente as leituras
-    //         ao Firestore comparando apenas o snapshot local com a lista da API.
     const ativasSnapshot = await db.collection('modelos_ativas')
       .where('postId', '!=', null)
       .get();
-    
+
     for (const doc of ativasSnapshot.docs) {
       const data = doc.data();
-      
-      // Se a garota estava no Firebase mas sumiu da Stripcash
-      if (!onlineUsernames.includes(data.username)) {
-        console.log(`[OFFLINE] Modelo ${data.username} saiu. Atualizando Post do Blogger...`);
-        try {
-          // Busca o Post Original
-          const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: data.postId });
-          
-          let currentTitle = post.data.title.replace('[OFFLINE] ', '');
-          let currentHtml = post.data.content;
 
-          // Substituição via Regex robusta
+      if (!onlineUsernames.includes(data.username)) {
+        console.log(`[OFFLINE] Modelo ${data.username} saiu. Atualizando Post...`);
+        try {
+          const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: data.postId });
+
+          let currentTitle = post.data.title.replace('[OFFLINE] ', '');
+          let currentHtml  = post.data.content;
+
           currentHtml = currentHtml.replace(REGEX_BADGE, badgeOffline);
 
-          // FIX #2: Botão offline agora aponta para a busca regional da modelo,
-          //         e NÃO mais para o linkAfiliado da própria modelo (que estará offline).
-          //         Usamos o estado salvo no Firebase para gerar a URL de região correta.
           const estadoModelo = data.estado || '';
-          const hrefOffline = estadoModelo
-            ? `/search/label/${estadoModelo}`
-            : '/';
-          
-          const btnOfflineFull = `<a href="${hrefOffline}" class="btn-call" target="_self" rel="nofollow">Ver Outras Garotas Disponíveis</a>`;
-          currentHtml = currentHtml.replace(REGEX_BTN, btnOfflineFull);
+          const hrefOffline  = estadoModelo ? `/search/label/${estadoModelo}` : '/';
+          const btnOffline   = `<a href="${hrefOffline}" class="btn-call" target="_self" rel="nofollow">Ver Outras Garotas Disponíveis</a>`;
+          currentHtml = currentHtml.replace(REGEX_BTN, btnOffline);
 
-          // Atualiza no Blogger
           await blogger.posts.patch({
             blogId: process.env.BLOG_ID,
             postId: data.postId,
             requestBody: { title: currentTitle, content: currentHtml }
           });
 
-          // Move a garota para a coleção de offline no Firebase
           await db.collection('modelos_offline').doc(data.username).set({
             ...data, offlineDesde: admin.firestore.FieldValue.serverTimestamp()
           });
           await db.collection('modelos_ativas').doc(data.username).delete();
 
         } catch (err) {
-          console.error(`Erro ao tentar colocar ${data.username} offline:`, err.message);
+          console.error(`Erro ao colocar ${data.username} offline:`, err.message);
         }
       }
     }
 
-    // =======================================================
-    // 2. ROTINA DE POSTAGEM (CRIAR NOVAS OU RESSUSCITAR)
-    // =======================================================
     console.log(`Encontradas ${models.length} modelos online na API Stripcash.`);
     const ativasUsernamesArray = ativasSnapshot.docs.map(doc => doc.data().username);
-    
     let operacoesBlogger = 0;
 
     for (const model of models) {
-      if (ativasUsernamesArray.includes(model.username)) {
-        continue; // Já está ativa no site perfeitamente, pula para a próxima sem gastar recursos
-      }
+      if (ativasUsernamesArray.includes(model.username)) continue;
 
       if (operacoesBlogger >= 3) {
-        console.log("Limite de 3 postagens/ressurreições por ciclo atingido. As próximas ficam para a próxima rodada.");
-        break; 
+        console.log("Limite de 3 operações por ciclo atingido.");
+        break;
       }
 
-      const docRefAtiva = db.collection('modelos_ativas').doc(model.username);
-
+      const docRefAtiva   = db.collection('modelos_ativas').doc(model.username);
       const docRefOffline = db.collection('modelos_offline').doc(model.username);
-      const docOffline = await docRefOffline.get();
+      const docOffline    = await docRefOffline.get();
 
       if (docOffline.exists) {
-        // RESSURREIÇÃO: Estava Offline e Voltou a Ficar Online!
         const dataOffline = docOffline.data();
-        console.log(`[VOLTOU] A modelo ${model.username} voltou a ficar online! Restaurando post...`);
-        
+        console.log(`[VOLTOU] ${model.username} voltou online! Restaurando...`);
         try {
           const post = await blogger.posts.get({ blogId: process.env.BLOG_ID, postId: dataOffline.postId });
-          
+
           let currentTitle = post.data.title.replace('[OFFLINE] ', '');
-          let currentHtml = post.data.content;
+          let currentHtml  = post.data.content;
 
           currentHtml = currentHtml.replace(REGEX_BADGE, badgeOnline);
 
-          // Restaura o link direto (Dofollow) para passar poder de SEO para o domínio principal
           const linkDireto = `https://iloveprive.com/${model.username}`;
-          const btnOnlineFull = `<a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>`;
-          currentHtml = currentHtml.replace(REGEX_BTN, btnOnlineFull);
+          const btnOnline  = `<a href="${linkDireto}" class="btn-call" target="_blank">Entrar no Privê Agora</a>`;
+          currentHtml = currentHtml.replace(REGEX_BTN, btnOnline);
 
           await blogger.posts.patch({
             blogId: process.env.BLOG_ID,
@@ -193,43 +152,20 @@ async function runBot() {
             requestBody: { title: currentTitle, content: currentHtml }
           });
 
-          // Move ela de volta para ativas
-          await docRefAtiva.set({
-             ...dataOffline,
-             dataPublicacao: admin.firestore.FieldValue.serverTimestamp()
-          });
+          await docRefAtiva.set({ ...dataOffline, dataPublicacao: admin.firestore.FieldValue.serverTimestamp() });
           await docRefOffline.delete();
 
         } catch (err) {
-           console.error(`Erro ao ressuscitar post de ${model.username}:`, err.message);
+          console.error(`Erro ao ressuscitar ${model.username}:`, err.message);
         }
 
       } else {
-        // MODELO INÉDITA: Cria um post novinho do Zero
         const localSorteado = LOCALIDADES[Math.floor(Math.random() * LOCALIDADES.length)];
-        const titulo = `Photo Acompanhante ${model.username} - Garota com Local em ${localSorteado.cidade} ${localSorteado.estado}`;
-        
-        // CORREÇÃO CRÍTICA DO LIMITE DE 150 CARACTERES (EVITA O CRASH DO BOT)
-        let descPesquisa = `Acompanhante ${model.username} em ${localSorteado.cidade} ${localSorteado.estado}. Câmera privê estilo Fatal Model. Clique para ver +18 e encontros reais.`;
-        if (descPesquisa.length > 150) {
-          descPesquisa = descPesquisa.substring(0, 147) + '...';
-        }
-        
+        const titulo    = `Photo Acompanhante ${model.username} - Garota com Local em ${localSorteado.cidade} ${localSorteado.estado}`;
         const atributos = model.tags ? model.tags.slice(0, 5).join(', ') : 'Premium, Online';
-        const avatar = model.avatarUrl || 'https://via.placeholder.com/300';
-        // O link direto transfere a autoridade do Blogger para a página da modelo no domínio principal (Dofollow)
+        const avatar    = model.avatarUrl || 'https://via.placeholder.com/300';
         const linkDireto = `https://iloveprive.com/${model.username}`;
 
-        // FIX #1: Removido `style="filter: blur(12px)..."` do <img>.
-        //         O blur na home e o desfoque na single page são controlados
-        //         EXCLUSIVAMENTE pelo template.xml via:
-        //           body.is-multiple .avatar-img { filter: blur(15px); ... }
-        //           body.is-single   .avatar-img { filter: none; ... }
-        //
-        // FIX #3: Removidos todos os CSS inline das divs (age-warning, similar-models, etc).
-        //         Cada elemento agora usa estritamente as classes definidas no template.xml:
-        //           .age-warning-banner, .status-online, .status-dot, .info-table,
-        //           .seo-desc, .btn-call, .similar-models, .similar-title, .similar-links
         const htmlContent = `
           <div class="post-city">${localSorteado.cidade} - ${localSorteado.estado}</div>
           
@@ -237,7 +173,6 @@ async function runBot() {
             <a href="${linkDireto}" target="_blank">
               <img src="${avatar}" alt="Acompanhante ${model.username}" class="avatar-img" />
             </a>
-            <!-- FIX P3: blur-warning injetado para aparecer na grid (is-multiple) via CSS do XML -->
             <div class="blur-warning">🔞 Clique para Ver</div>
           </div>
 
@@ -272,27 +207,14 @@ async function runBot() {
           </div>
         `;
 
-        console.log(`Criando listagem Inédita: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
-        
-        // FIX #6: Normalização dos labels antes do envio ao Blogger.
-        //         Garante que cidade e região não se repitam (case-insensitive) e que
-        //         nenhum valor vazio ou undefined passe para a API.
-        const labelsRaw = [
-          localSorteado.cidade,
-          localSorteado.regiao,
-          localSorteado.estado
-        ];
-        const tagsBlogger = Array.from(
-          new Set(
-            labelsRaw
-              .filter(label => label && label.trim() !== '')          // remove undefined/null/vazio
-              .map(label => label.trim())                              // normaliza espaços
-          )
-        ).filter((label, _, arr) => {
-          // Remove duplicatas semânticas: se cidade === regiao, mantém só uma instância
-          // O Set já cobre o caso exato; esta etapa garante case-insensitive
-          const lowerLabel = label.toLowerCase();
-          return arr.findIndex(l => l.toLowerCase() === lowerLabel) === arr.indexOf(label);
+        console.log(`Criando: ${model.username} em ${localSorteado.cidade}-${localSorteado.estado}`);
+
+        const labelsRaw  = [localSorteado.cidade, localSorteado.regiao, localSorteado.estado];
+        const tagsBlogger = Array.from(new Set(
+          labelsRaw.filter(l => l && l.trim() !== '').map(l => l.trim())
+        )).filter((label, _, arr) => {
+          const low = label.toLowerCase();
+          return arr.findIndex(l => l.toLowerCase() === low) === arr.indexOf(label);
         });
 
         const post = await blogger.posts.insert({
@@ -302,19 +224,10 @@ async function runBot() {
             title: titulo,
             content: htmlContent,
             labels: tagsBlogger,
-            // FIX DESCRIÇÃO: customMetaData NÃO é o campo 'Descrição da pesquisa' do Blogger.
-            // Esse campo é metadata de blog-nível e é ignorado no editor de posts.
-            // A Blogger API v3 não expõe o campo de search description via requestBody padrão.
-            // O snippet/descrição é gerado automaticamente pelo Blogger a partir do texto do post.
-            // Para controlar a descrição de pesquisa, o texto rico do .seo-desc já garante
-            // que o Blogger extrai palavras-chave relevantes para o snippet automático.
-            //
-            // FIX LOCALIZAÇÃO: Adicionados lat/lng obrigatórios — sem coordenadas numéricas
-            // a Blogger API ignora silenciosamente o campo location inteiro.
             location: {
               name: `${localSorteado.cidade}, ${localSorteado.estado}, Brasil`,
-              lat:  localSorteado.lat,
-              lng:  localSorteado.lng,
+              lat: localSorteado.lat,
+              lng: localSorteado.lng,
               span: '0.1 0.1'
             }
           }
@@ -323,24 +236,21 @@ async function runBot() {
         await docRefAtiva.set({
           username: model.username,
           cidade: localSorteado.cidade,
-          estado: localSorteado.estado,          // salvo para uso no redirecionamento offline
+          estado: localSorteado.estado,
           postId: post.data.id,
           dataPublicacao: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        console.log(`[SUCESSO] Novo Post injetado com ID: ${post.data.id}`);
+        console.log(`[SUCESSO] Post criado: ${post.data.id}`);
       }
-      
-      operacoesBlogger++; // Conta que gastamos 1 cota de operação
+
+      operacoesBlogger++;
     }
+
     console.log("Rotina Executada com Sucesso Absoluto!");
   } catch (error) {
-    // FIX CRÍTICO: exibe stack completo no log do GitHub Actions, não apenas message
-    console.error("Erro crítico na execução do bot:", error.message, error.stack);
+    console.error("Erro crítico:", error.message, error.stack);
   } finally {
-    // FIX CRÍTICO: encerra o processo explicitamente.
-    // Sem isto, o Firebase Admin SDK mantém conexões abertas e a GitHub Action
-    // fica pendurada até o timeout padrão de 6 horas, consumindo minutos gratuitos.
     process.exit(0);
   }
 }
