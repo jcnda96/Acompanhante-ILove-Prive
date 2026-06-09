@@ -61,12 +61,13 @@ const LOCALIDADES = [
 
 // FIX #3: Elementos HTML de status SEM CSS inline — usam apenas classes do template.xml.
 // FIX #4: As constantes de substituição são âncoras semânticas curtas (sem CSS inline longo),
-const badgeOnline  = '<div class="status-online"><div class="status-dot"></div> TRANSMITINDO AO VIVO</div>';
+// O dot usa SPAN (não div) para evitar o bug do lazy regex com divs aninhadas
+const badgeOnline  = '<div class="status-online"><span class="status-dot"></span> TRANSMITINDO AO VIVO</div>';
 const badgeOffline = '<div class="status-offline">🌑 ATUALMENTE OFFLINE</div>';
 
-// FIX DEFINITIVO DOS BOTÕES: Regex para capturar e substituir a tag HTML INTEIRA,
-// evitando atributos href duplicados e vazamento de código na tela.
-const REGEX_BADGE = /<div class="status-(online|offline)[^>]*>[\s\S]*?<\/div>/i;
+// REGEX_BADGE: Captura o badge inteiro + limpa qualquer texto orfão deixado pelo bug antigo
+// O (?:\s*TRANSMITINDO AO VIVO<\/div>)* no final consome os restos do regex antigo
+const REGEX_BADGE = /<div class="status-(?:online|offline)"[^>]*>[\s\S]*?<\/div>(?:\s*TRANSMITINDO AO VIVO<\/div>)*/i;
 const REGEX_BTN = /<a[^>]*class="btn-call"[^>]*>[\s\S]*?<\/a>/i;
 
 async function runBot() {
