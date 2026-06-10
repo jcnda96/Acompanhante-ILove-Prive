@@ -196,8 +196,8 @@ async function runBot() {
     for (const model of models) {
       if (ativasUsernamesArray.includes(model.username)) continue;
 
-      if (operacoesBlogger >= 3) {
-        console.log("Limite de 3 operações por ciclo atingido. As próximas ficam para a próxima rodada.");
+      if (operacoesBlogger >= 10) {
+        console.log("Limite de 10 operações por ciclo atingido. As próximas ficam para a próxima rodada.");
         break;
       }
 
