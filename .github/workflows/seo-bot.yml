@@ -21,7 +21,6 @@ jobs:
           
       - name: Instalar Dependências (da raiz)
         run: npm install
-        working-directory: ./Acompanhante-ILove-Prive-main
           
       - name: Rodar Robô SEO
         env:
