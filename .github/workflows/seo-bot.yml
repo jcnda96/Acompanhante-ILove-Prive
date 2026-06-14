@@ -1,0 +1,41 @@
+name: Bot SEO Drip-Feed
+
+on:
+  schedule:
+    # Roda todos os dias às 10:00 da manhã (horário de Brasília = 13:00 UTC)
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Permite rodar manualmente no GitHub
+
+jobs:
+  post-seo-pages:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checar repositório
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Instalar Dependências (da raiz)
+        run: npm install
+        working-directory: ./Acompanhante-ILove-Prive-main
+          
+      - name: Rodar Robô SEO
+        env:
+          BLOGGER_CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
+          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+        run: node index.js
+        working-directory: ./bot-seo
+        
+      - name: Salvar progresso (keywords.json) no GitHub
+        run: |
+          git config --global user.name "SEO Bot"
+          git config --global user.email "seo-bot@github.actions"
+          git add bot-seo/keywords.json
+          git commit -m "bot: atualizou lista de palavras-chave SEO [skip ci]" || echo "Nenhuma mudança para commitar"
+          git push
