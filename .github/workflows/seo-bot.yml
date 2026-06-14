@@ -9,6 +9,8 @@ on:
 jobs:
   post-seo-pages:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checar repositório
